@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>직역연금수급자(배우자포함) 신청서류 안내</title>
+<style>
+  :root{
+    --ink:#1E3A34;
+    --bg:#F6F3EA;
+    --card:#FFFFFF;
+    --accent:#2E6B5E;
+    --accent-soft:#DCEAE3;
+    --gold:#B8863B;
+    --line:#E3DDC9;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Noto Sans KR','Malgun Gothic',sans-serif;
+    line-height:1.6;
+    padding-bottom:60px;
+  }
+  header{
+    background:var(--accent);
+    color:#fff;
+    padding:36px 24px 44px;
+    text-align:center;
+    position:relative;
+  }
+  header h1{
+    font-size:26px;
+    margin:0 0 10px;
+    font-weight:700;
+    letter-spacing:-0.5px;
+  }
+  header p{
+    margin:0;
+    font-size:15px;
+    opacity:0.92;
+  }
+  .badge{
+    display:inline-block;
+    background:rgba(255,255,255,0.18);
+    border:1px solid rgba(255,255,255,0.5);
+    border-radius:999px;
+    padding:5px 16px;
+    font-size:13px;
+    margin-bottom:14px;
+    letter-spacing:0.5px;
+  }
+  .container{
+    max-width:640px;
+    margin:-24px auto 0;
+    padding:0 18px;
+  }
+  .listen-all{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+    width:100%;
+    background:var(--gold);
+    color:#fff;
+    border:none;
+    border-radius:16px;
+    padding:18px;
+    font-size:18px;
+    font-weight:700;
+    cursor:pointer;
+    box-shadow:0 6px 16px rgba(184,134,59,0.35);
+    margin-bottom:22px;
+  }
+  .listen-all:active{transform:scale(0.98);}
+  .listen-all.speaking{ background:#8f6626; }
+  .stop-all{
+    display:none;
+    width:100%;
+    background:#8a8f8c;
+    color:#fff;
+    border:none;
+    border-radius:16px;
+    padding:14px;
+    font-size:15px;
+    font-weight:600;
+    cursor:pointer;
+    margin-bottom:22px;
+  }
+  .card{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:18px;
+    padding:20px 20px 20px 18px;
+    margin-bottom:16px;
+    display:flex;
+    gap:16px;
+    align-items:flex-start;
+    box-shadow:0 2px 8px rgba(30,58,52,0.05);
+    transition:box-shadow .2s, border-color .2s;
+  }
+  .card.active{
+    border-color:var(--accent);
+    box-shadow:0 4px 14px rgba(46,107,94,0.18);
+  }
+  .num{
+    flex:0 0 auto;
+    width:38px;
+    height:38px;
+    border-radius:50%;
+    background:var(--accent-soft);
+    color:var(--accent);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:700;
+    font-size:16px;
+  }
+  .card-body{flex:1;}
+  .card-title{
+    font-size:18px;
+    font-weight:700;
+    margin:0 0 6px;
+    color:var(--ink);
+  }
+  .card-desc{
+    font-size:15px;
+    color:#4A554F;
+    margin:0;
+  }
+  .listen-btn{
+    flex:0 0 auto;
+    width:44px;
+    height:44px;
+    border-radius:50%;
+    border:none;
+    background:var(--accent);
+    color:#fff;
+    font-size:18px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    margin-top:2px;
+  }
+  .listen-btn.playing{
+    background:var(--gold);
+  }
+  footer{
+    max-width:640px;
+    margin:8px auto 0;
+    padding:0 18px;
+    text-align:center;
+    color:#6E7A73;
+    font-size:13px;
+  }
+  .controls-row{
+    display:flex;
+    gap:10px;
+    justify-content:center;
+    margin:-4px 0 22px;
+  }
+  .speed-btn{
+    background:#fff;
+    border:1px solid var(--line);
+    color:var(--ink);
+    border-radius:10px;
+    padding:8px 14px;
+    font-size:13px;
+    cursor:pointer;
+  }
+  .speed-btn.on{
+    background:var(--accent);
+    color:#fff;
+    border-color:var(--accent);
+  }
+  @media(max-width:400px){
+    header h1{font-size:22px;}
+    .card{padding:16px 14px;}
+    .card-title{font-size:16.5px;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="badge">영종구노인인력개발센터</div>
+  <h1>직역연금수급자(배우자포함)<br>신청서류 안내</h1>
+  <p>아래 서류를 준비해 주세요 · 버튼을 누르면 음성으로도 들을 수 있습니다</p>
+</header>
+
+<div class="container">
+
+  <button class="listen-all" id="listenAllBtn" onclick="toggleAll()">
+    <span id="listenAllIcon">🔊</span>
+    <span id="listenAllText">전체 내용 듣기</span>
+  </button>
+
+  <div class="controls-row">
+    <button class="speed-btn on" data-rate="0.85" onclick="setRate(0.85,this)">천천히</button>
+    <button class="speed-btn" data-rate="1" onclick="setRate(1,this)">보통</button>
+    <button class="speed-btn" data-rate="1.25" onclick="setRate(1.25,this)">빠르게</button>
+  </div>
+
+  <div id="cardList"></div>
+
+</div>
+
+<footer>
+  서류 관련 문의사항은 담당자에게 전화로 문의해 주세요.
+</footer>
+
+<script>
+const items = [
+  {
+    title: "주민등록등본",
+    desc: "본인(및 배우자) 기준으로 최근 발급본을 준비해 주세요.",
+    speak: "첫째, 주민등록등본입니다. 본인과 배우자 기준으로 최근 발급본을 준비해 주세요."
+  },
+  {
+    title: "본인 통장사본",
+    desc: "지급받으실 본인 명의 통장의 사본을 준비해 주세요.",
+    speak: "둘째, 본인 통장사본입니다. 지급받으실 본인 명의 통장의 사본을 준비해 주세요."
+  },
+  {
+    title: "직역연금 지급 사실 확인서 등",
+    desc: "연금소득을 확인할 수 있는 서류를 준비해 주세요. (공무원연금공단, 군인연금, 사학연금 등 발급)",
+    speak: "셋째, 직역연금 지급 사실 확인서 등 연금소득을 확인할 수 있는 서류입니다. 공무원연금공단이나 군인연금, 사학연금 등에서 발급받으실 수 있습니다."
+  },
+  {
+    title: "소득금액증명서",
+    desc: "국세청에서 발급, 지급받은 총액을 확인하는 서류입니다.",
+    speak: "넷째, 소득금액증명서입니다. 국세청에서 발급받으시며, 지급받은 총액을 확인하는 서류입니다."
+  },
+  {
+    title: "자가 공시가 확인",
+    desc: "국토교통부 부동산 공시가격 알리미에서 조회한 자료입니다.",
+    speak: "다섯째, 자가 공시가 확인 자료입니다. 국토교통부 부동산 공시가격 알리미 누리집에서 조회하여 준비해 주세요."
+  }
+];
+
+let currentRate = 0.85;
+let synth = window.speechSynthesis;
+let koVoice = null;
+
+function pickVoice(){
+  const voices = synth.getVoices();
+  koVoice = voices.find(v => v.lang === 'ko-KR') || voices.find(v => v.lang.startsWith('ko')) || null;
+}
+if (synth) {
+  pickVoice();
+  synth.onvoiceschanged = pickVoice;
+}
+
+function setRate(r, btn){
+  currentRate = r;
+  document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+}
+
+function renderCards(){
+  const list = document.getElementById('cardList');
+  list.innerHTML = '';
+  items.forEach((item, idx) => {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.id = 'card-' + idx;
+    card.innerHTML = `
+      <div class="num">${idx+1}</div>
+      <div class="card-body">
+        <p class="card-title">${item.title}</p>
+        <p class="card-desc">${item.desc}</p>
+      </div>
+      <button class="listen-btn" id="btn-${idx}" onclick="speakOne(${idx})" aria-label="음성으로 듣기">🔊</button>
+    `;
+    list.appendChild(card);
+  });
+}
+renderCards();
+
+function clearActiveStates(){
+  document.querySelectorAll('.card').forEach(c => c.classList.remove('active'));
+  document.querySelectorAll('.listen-btn').forEach(b => b.classList.remove('playing'));
+}
+
+function speakOne(idx){
+  if (!synth) { alert('이 브라우저는 음성 읽기를 지원하지 않습니다.'); return; }
+  synth.cancel();
+  clearActiveStates();
+  resetAllBtn();
+
+  const utter = new SpeechSynthesisUtterance(items[idx].speak);
+  utter.lang = 'ko-KR';
+  if (koVoice) utter.voice = koVoice;
+  utter.rate = currentRate;
+
+  document.getElementById('card-'+idx).classList.add('active');
+  document.getElementById('btn-'+idx).classList.add('playing');
+
+  utter.onend = () => {
+    document.getElementById('card-'+idx).classList.remove('active');
+    document.getElementById('btn-'+idx).classList.remove('playing');
+  };
+  synth.speak(utter);
+}
+
+let allPlaying = false;
+
+function toggleAll(){
+  if (!synth) { alert('이 브라우저는 음성 읽기를 지원하지 않습니다.'); return; }
+  if (allPlaying) {
+    synth.cancel();
+    resetAllBtn();
+    clearActiveStates();
+    return;
+  }
+  synth.cancel();
+  clearActiveStates();
+  allPlaying = true;
+
+  const intro = new SpeechSynthesisUtterance(
+    "직역연금 수급자, 배우자 포함, 신청서류 안내입니다. 아래 다섯 가지 서류를 준비해 주세요."
+  );
+  intro.lang = 'ko-KR';
+  if (koVoice) intro.voice = koVoice;
+  intro.rate = currentRate;
+
+  document.getElementById('listenAllBtn').classList.add('speaking');
+  document.getElementById('listenAllIcon').textContent = '⏸';
+  document.getElementById('listenAllText').textContent = '읽는 중... (누르면 중지)';
+
+  synth.speak(intro);
+
+  let idx = 0;
+  function speakNext(){
+    if (idx >= items.length) {
+      resetAllBtn();
+      clearActiveStates();
+      return;
+    }
+    clearActiveStates();
+    document.getElementById('card-'+idx).classList.add('active');
+    document.getElementById('btn-'+idx).classList.add('playing');
+
+    const u = new SpeechSynthesisUtterance(items[idx].speak);
+    u.lang = 'ko-KR';
+    if (koVoice) u.voice = koVoice;
+    u.rate = currentRate;
+    u.onend = () => {
+      idx++;
+      if (allPlaying) speakNext();
+    };
+    synth.speak(u);
+  }
+
+  intro.onend = () => { if (allPlaying) speakNext(); };
+}
+
+function resetAllBtn(){
+  allPlaying = false;
+  document.getElementById('listenAllBtn').classList.remove('speaking');
+  document.getElementById('listenAllIcon').textContent = '🔊';
+  document.getElementById('listenAllText').textContent = '전체 내용 듣기';
+}
+</script>
+
+</body>
+</html>
