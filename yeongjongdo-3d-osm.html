@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>영종도 OSM 3D 길찾기</title>
+<style>
+  :root{
+    --bg:#0d1b1e; --panel:#122a2e; --line:#1f4b4f;
+    --ink:#eaf4f2; --muted:#8fb0ac; --accent:#ffb454; --accent2:#4fd1c5;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+    overflow:hidden;}
+  #scene{position:fixed;inset:0;}
+
+  #topbar{
+    position:fixed; top:0; left:0; right:0; padding:16px 18px 12px;
+    background:linear-gradient(180deg, rgba(13,27,30,0.95), rgba(13,27,30,0));
+    pointer-events:none; z-index:5;
+  }
+  #topbar h1{ margin:0; font-size:17px; font-weight:700; letter-spacing:-0.2px; }
+  #topbar p{ margin:4px 0 0; font-size:12.5px; color:var(--muted); }
+
+  #panel{
+    position:fixed; left:0; right:0; bottom:0; background:var(--panel);
+    border-top:1px solid var(--line); border-radius:18px 18px 0 0;
+    padding:16px 16px calc(16px + env(safe-area-inset-bottom));
+    z-index:10; box-shadow:0 -8px 24px rgba(0,0,0,0.35);
+  }
+  #load-row{ display:flex; gap:8px; align-items:center; }
+  #load-btn{
+    flex:1; border:none; border-radius:10px; padding:13px 16px;
+    font-size:15px; font-weight:600; cursor:pointer; background:var(--accent2); color:#04201d;
+  }
+  #load-btn:disabled{ background:#2a4a48; color:#6f9490; }
+  #radius{ width:84px; }
+  #radius-val{ font-size:12px; color:var(--muted); min-width:56px; text-align:right; }
+
+  #status{ margin-top:10px; font-size:13px; color:var(--muted); min-height:34px; line-height:1.5; }
+  #status.warn{ color:var(--accent); }
+  #status.good{ color:var(--accent2); }
+
+  #reset-btn{
+    margin-top:6px; background:none; border:1px solid var(--line); color:var(--muted);
+    border-radius:8px; padding:8px 12px; font-size:12.5px; cursor:pointer; display:none;
+  }
+
+  #legend{
+    position:fixed; left:14px; top:66px; z-index:5;
+    background:rgba(18,42,46,0.85); border:1px solid var(--line);
+    border-radius:10px; padding:8px 10px; font-size:11px; color:var(--muted);
+    pointer-events:none; line-height:1.7;
+  }
+  #legend span{display:inline-block; width:8px; height:8px; border-radius:2px; margin-right:6px;}
+
+  #hint{
+    position:fixed; left:0; right:0; bottom:96px; text-align:center;
+    font-size:12.5px; color:var(--muted); pointer-events:none; z-index:6;
+    padding:0 20px; transition:opacity .3s;
+  }
+</style>
+</head>
+<body>
+
+<div id="scene"></div>
+
+<div id="topbar">
+  <h1>영종도 OSM 3D 길찾기</h1>
+  <p>OpenStreetMap 실제 건물·도로 데이터를 불러와 압출한 3D 지도입니다.</p>
+</div>
+
+<div id="legend">
+  <div><span style="background:#4fd1c5"></span>내 위치</div>
+  <div><span style="background:#ffb454"></span>선택한 목적지</div>
+  <div><span style="background:#5c7f7c"></span>OSM 건물</div>
+  <div><span style="background:#3a5a5c"></span>도로</div>
+</div>
+
+<div id="hint">지도를 불러온 뒤, 건물을 탭하면 목적지로 선택됩니다</div>
+
+<div id="panel">
+  <div id="load-row">
+    <button id="load-btn">내 주변 건물·도로 불러오기</button>
+  </div>
+  <div style="display:flex; align-items:center; gap:8px; margin-top:8px;">
+    <input type="range" id="radius" min="200" max="1200" step="100" value="600">
+    <span id="radius-val">반경 600m</span>
+  </div>
+  <div id="status">내 위치를 확인하는 중…</div>
+  <button id="reset-btn">목적지·경로 초기화</button>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+/* -----------------------------------------------------------------------
+   기준점: 씬의 (0,0)에 해당하는 실제 위경도. 기존 route.html과 동일한
+   기본값(운남동우체국)을 사용. ?lat=&lon=&name= 으로 다른 기준점도 지정 가능.
+------------------------------------------------------------------------ */
+const params = new URLSearchParams(location.search);
+const ORIGIN = {
+  lat: parseFloat(params.get("lat")) || 37.4768546,
+  lon: parseFloat(params.get("lon")) || 126.5233858,
+  name: params.get("name") || "운남동우체국",
+};
+const SCALE = 1 / 8; // 8m -> 1 유닛 (건물 폭 대비 도로 스케일이 자연스럽게 맞음)
+const MAX_BUILDINGS = 600;
+const MAX_ROADS = 400;
+
+function toLocalXZ(lat, lon) {
+  const R = 6371000;
+  const dLat = (lat - ORIGIN.lat) * Math.PI / 180;
+  const dLon = (lon - ORIGIN.lon) * Math.PI / 180;
+  return {
+    x: dLon * R * Math.cos(ORIGIN.lat * Math.PI / 180),
+    z: -dLat * R,
+  };
+}
+
+/* ---------------------------- Three.js 세팅 ---------------------------- */
+const container = document.getElementById("scene");
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0d1b1e);
+scene.fog = new THREE.Fog(0x0d1b1e, 200, 900);
+
+const camera = new THREE.PerspectiveCamera(55, innerWidth/innerHeight, 0.1, 5000);
+camera.position.set(0, 140, 140);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+container.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 0, 0);
+controls.maxPolarAngle = Math.PI * 0.49;
+controls.minDistance = 15;
+controls.maxDistance = 600;
+controls.enableDamping = true;
+
+scene.add(new THREE.HemisphereLight(0x8fd6d0, 0x0a1518, 1.1));
+const sun = new THREE.DirectionalLight(0xffffff, 0.6);
+sun.position.set(150, 220, 120);
+scene.add(sun);
+
+const ground = new THREE.Mesh(
+  new THREE.PlaneGeometry(3000, 3000),
+  new THREE.MeshStandardMaterial({ color: 0x13363a, roughness: 1 })
+);
+ground.rotation.x = -Math.PI/2;
+scene.add(ground);
+
+const grid = new THREE.GridHelper(1600, 40, 0x1f4b4f, 0x162f32);
+grid.position.y = 0.05;
+scene.add(grid);
+
+/* ---------------------------- 라벨 스프라이트 ---------------------------- */
+function makeLabel(text) {
+  const cvs = document.createElement("canvas");
+  const ctx = cvs.getContext("2d");
+  const pad = 12, fontSize = 26;
+  ctx.font = `600 ${fontSize}px -apple-system, sans-serif`;
+  const w = ctx.measureText(text).width + pad*2;
+  cvs.width = w; cvs.height = fontSize + pad*2;
+  ctx.font = `600 ${fontSize}px -apple-system, sans-serif`;
+  ctx.fillStyle = "rgba(13,27,30,0.85)";
+  ctx.beginPath(); ctx.roundRect(0,0,cvs.width,cvs.height,8); ctx.fill();
+  ctx.fillStyle = "#eaf4f2";
+  ctx.textBaseline = "middle";
+  ctx.fillText(text, pad, cvs.height/2);
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cvs), depthTest:false }));
+  const f = 0.22;
+  sprite.scale.set(cvs.width*f/10, cvs.height*f/10, 1);
+  return sprite;
+}
+
+// 기준점 마커(참고용)
+const originLabel = makeLabel(ORIGIN.name);
+originLabel.position.set(0, 4, 0);
+scene.add(originLabel);
+
+/* ---------------------------- 내 위치 / 목적지 마커 ---------------------------- */
+const meMarker = new THREE.Group();
+meMarker.add(new THREE.Mesh(
+  new THREE.SphereGeometry(2.2, 24, 24),
+  new THREE.MeshStandardMaterial({ color: 0x4fd1c5, emissive: 0x134f49, emissiveIntensity: 0.6 })
+));
+const meRing = new THREE.Mesh(
+  new THREE.RingGeometry(4, 5, 32),
+  new THREE.MeshBasicMaterial({ color: 0x4fd1c5, side: THREE.DoubleSide, transparent:true, opacity:0.5 })
+);
+meRing.rotation.x = -Math.PI/2; meRing.position.y = 0.2;
+meMarker.add(meRing);
+meMarker.visible = false;
+scene.add(meMarker);
+
+const destMarker = new THREE.Mesh(
+  new THREE.ConeGeometry(3, 9, 20),
+  new THREE.MeshStandardMaterial({ color: 0xffb454, emissive: 0x4a2e04, emissiveIntensity: 0.5 })
+);
+destMarker.visible = false;
+scene.add(destMarker);
+
+let myLatLon = null;
+function updateMyPosition(lat, lon) {
+  myLatLon = { lat, lon };
+  const { x, z } = toLocalXZ(lat, lon);
+  meMarker.position.set(x*SCALE, 0, z*SCALE);
+  meMarker.visible = true;
+}
+
+/* ---------------------------- 경로 라인 ---------------------------- */
+let routeLine = null;
+function drawRoute(coordsLatLon) {
+  if (routeLine) { scene.remove(routeLine); routeLine.geometry.dispose(); routeLine.material.dispose(); }
+  const points = coordsLatLon.map(([lon, lat]) => {
+    const { x, z } = toLocalXZ(lat, lon);
+    return new THREE.Vector3(x*SCALE, 0.8, z*SCALE);
+  });
+  const curve = new THREE.CatmullRomCurve3(points);
+  const tubeGeo = new THREE.TubeGeometry(curve, Math.max(points.length*3, 24), 0.8, 8, false);
+  const tubeMat = new THREE.MeshStandardMaterial({ color: 0xffb454, emissive: 0x3a2400, emissiveIntensity: 0.4 });
+  routeLine = new THREE.Mesh(tubeGeo, tubeMat);
+  scene.add(routeLine);
+}
+function clearRoute() {
+  if (routeLine) { scene.remove(routeLine); routeLine.geometry.dispose(); routeLine.material.dispose(); routeLine = null; }
+  destMarker.visible = false;
+}
+
+/* ---------------------------- OSM(Overpass) 로딩 ---------------------------- */
+const osmGroup = new THREE.Group();
+scene.add(osmGroup);
+const buildingMeshes = [];
+
+async function fetchOsm(lat, lon, radiusM) {
+  const query = `[out:json][timeout:25];(way["building"](around:${radiusM},${lat},${lon});way["highway"](around:${radiusM},${lat},${lon}););out geom;`;
+  const res = await fetch("https://overpass-api.de/api/interpreter", {
+    method: "POST",
+    body: "data=" + encodeURIComponent(query),
+  });
+  if (!res.ok) throw new Error("OSM 서버 응답 오류 (트래픽 제한일 수 있습니다. 잠시 후 다시 시도해주세요)");
+  return res.json();
+}
+
+function clearOsm() {
+  osmGroup.children.forEach(c => { c.geometry?.dispose(); c.material?.dispose(); });
+  osmGroup.clear();
+  buildingMeshes.length = 0;
+}
+
+function addBuilding(el) {
+  const raw = el.geometry.filter(Boolean);
+  if (raw.length < 3) return;
+  let pts = raw.map(p => toLocalXZ(p.lat, p.lon));
+  if (pts.length > 1 && pts[0].x === pts[pts.length-1].x && pts[0].z === pts[pts.length-1].z) pts.pop();
+  if (pts.length < 3) return;
+
+  const shape = new THREE.Shape(pts.map(p => new THREE.Vector2(p.x*SCALE, -p.z*SCALE)));
+  const tags = el.tags || {};
+  let height = 9;
+  if (tags.height) height = parseFloat(tags.height) || height;
+  else if (tags["building:levels"]) height = (parseFloat(tags["building:levels"]) || 3) * 3;
+
+  let geo;
+  try {
+    geo = new THREE.ExtrudeGeometry(shape, { depth: height*SCALE, bevelEnabled: false });
+  } catch (e) { return; } // 자기교차 등 이상 폴리곤은 건너뜀
+  geo.rotateX(-Math.PI/2);
+
+  const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0x5c7f7c, roughness: 0.85 }));
+  const centroid = raw.reduce((a,p)=>({lat:a.lat+p.lat/raw.length, lon:a.lon+p.lon/raw.length}), {lat:0,lon:0});
+  mesh.userData = { centroid, name: tags.name || null };
+  osmGroup.add(mesh);
+  buildingMeshes.push(mesh);
+}
+
+function addRoad(el) {
+  const raw = el.geometry.filter(Boolean);
+  if (raw.length < 2) return;
+  const pts = raw.map(p => {
+    const { x, z } = toLocalXZ(p.lat, p.lon);
+    return new THREE.Vector3(x*SCALE, 0.3, z*SCALE);
+  });
+  const geo = new THREE.BufferGeometry().setFromPoints(pts);
+  const line = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: 0x3a5a5c }));
+  osmGroup.add(line);
+}
+
+function buildFromOsm(data) {
+  clearOsm();
+  let bCount = 0, rCount = 0, truncated = false;
+  for (const el of data.elements) {
+    if (el.type !== "way" || !el.geometry) continue;
+    const tags = el.tags || {};
+    if (tags.building && bCount < MAX_BUILDINGS) { addBuilding(el); bCount++; }
+    else if (tags.highway && rCount < MAX_ROADS) { addRoad(el); rCount++; }
+    else if (tags.building || tags.highway) truncated = true;
+  }
+  return { bCount, rCount, truncated };
+}
+
+/* ---------------------------- 경로 요청 ---------------------------- */
+async function fetchRoute(from, to) {
+  const url = `https://router.project-osrm.org/route/v1/driving/${from.lon},${from.lat};${to.lon},${to.lat}?overview=full&geometries=geojson`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("경로 검색 실패");
+  const data = await res.json();
+  if (!data.routes || !data.routes.length) throw new Error("경로를 찾을 수 없습니다");
+  return data.routes[0];
+}
+
+async function goToDestination(destLat, destLon, label) {
+  destMarker.position.set(...(([x,z]) => [x, 6, z])(Object.values(toLocalXZ(destLat, destLon)).map(v=>v*SCALE)));
+  destMarker.visible = true;
+  resetBtn.style.display = "inline-block";
+
+  if (!myLatLon) { setStatus("내 위치를 아직 확인할 수 없습니다.", true); return; }
+  setStatus(`${label} 경로를 찾는 중…`);
+  try {
+    const route = await fetchRoute(myLatLon, { lat: destLat, lon: destLon });
+    drawRoute(route.geometry.coordinates);
+    const km = (route.distance/1000).toFixed(2);
+    const min = Math.round(route.duration/60);
+    setStatus(`${label} · 약 ${km}km · 차량 기준 ${min}분`, false, true);
+  } catch (e) {
+    setStatus(e.message || "경로를 불러오지 못했습니다.", true);
+  }
+}
+
+/* ---------------------------- 건물 탭 -> 목적지 ---------------------------- */
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2();
+renderer.domElement.addEventListener("click", (ev) => {
+  pointer.x = (ev.clientX / innerWidth) * 2 - 1;
+  pointer.y = -(ev.clientY / innerHeight) * 2 + 1;
+  raycaster.setFromCamera(pointer, camera);
+  const hits = raycaster.intersectObjects(buildingMeshes, false);
+  if (!hits.length) return;
+  const b = hits[0].object;
+  const { centroid, name } = b.userData;
+  goToDestination(centroid.lat, centroid.lon, name || "선택한 건물");
+});
+
+/* ---------------------------- UI ---------------------------- */
+const loadBtn = document.getElementById("load-btn");
+const resetBtn = document.getElementById("reset-btn");
+const statusEl = document.getElementById("status");
+const radiusInput = document.getElementById("radius");
+const radiusVal = document.getElementById("radius-val");
+const hintEl = document.getElementById("hint");
+
+radiusInput.addEventListener("input", () => {
+  radiusVal.textContent = `반경 ${radiusInput.value}m`;
+});
+
+function setStatus(msg, warn=false, good=false) {
+  statusEl.textContent = msg;
+  statusEl.className = warn ? "warn" : good ? "good" : "";
+}
+
+loadBtn.addEventListener("click", async () => {
+  const center = myLatLon || ORIGIN;
+  const radius = Number(radiusInput.value);
+  loadBtn.disabled = true;
+  setStatus("OSM 데이터를 불러오는 중… (건물 수에 따라 몇 초 걸릴 수 있어요)");
+  try {
+    const data = await fetchOsm(center.lat, center.lon, radius);
+    const { bCount, rCount, truncated } = buildFromOsm(data);
+    setStatus(
+      `건물 ${bCount}개, 도로 ${rCount}개 불러왔습니다.` +
+      (truncated ? " (일부는 성능을 위해 생략됨 — 반경을 줄여보세요)" : ""),
+      truncated
+    );
+    hintEl.style.opacity = bCount ? "1" : "0";
+  } catch (e) {
+    setStatus(e.message || "불러오기에 실패했습니다.", true);
+  } finally {
+    loadBtn.disabled = false;
+  }
+});
+
+resetBtn.addEventListener("click", () => {
+  clearRoute();
+  resetBtn.style.display = "none";
+  setStatus("목적지가 초기화되었습니다. 지도 위 건물을 다시 탭해보세요.");
+});
+
+/* ---------------------------- 실시간 GPS ---------------------------- */
+if ("geolocation" in navigator) {
+  navigator.geolocation.watchPosition(
+    (pos) => {
+      updateMyPosition(pos.coords.latitude, pos.coords.longitude);
+      if (statusEl.textContent.startsWith("내 위치를 확인")) {
+        setStatus("내 위치 확인됨. '내 주변 건물·도로 불러오기'를 눌러주세요.");
+      }
+    },
+    () => {
+      setStatus("위치 권한이 거부되어 기준점(" + ORIGIN.name + ")으로 대체합니다.", true);
+      updateMyPosition(ORIGIN.lat, ORIGIN.lon);
+    },
+    { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
+  );
+} else {
+  setStatus("이 브라우저는 위치 확인을 지원하지 않습니다.", true);
+  updateMyPosition(ORIGIN.lat, ORIGIN.lon);
+}
+
+/* ---------------------------- 렌더 루프 ---------------------------- */
+function animate() {
+  requestAnimationFrame(animate);
+  meRing.rotation.z += 0.01;
+  controls.update();
+  renderer.render(scene, camera);
+}
+animate();
+
+addEventListener("resize", () => {
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+</script>
+</body>
+</html>
