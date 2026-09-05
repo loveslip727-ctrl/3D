@@ -85,7 +85,7 @@
     <button id="load-btn">내 주변 건물·도로 불러오기</button>
   </div>
   <div style="display:flex; align-items:center; gap:8px; margin-top:8px;">
-    <input type="range" id="radius" min="200" max="5000" step="100" value="600">
+    <input type="range" id="radius" min="200" max="10000" step="200" value="600">
     <span id="radius-val">반경 600m</span>
   </div>
   <div id="status">내 위치를 확인하는 중…</div>
@@ -194,11 +194,11 @@ scene.add(originLabel);
 /* ---------------------------- 내 위치 / 목적지 마커 ---------------------------- */
 const meMarker = new THREE.Group();
 meMarker.add(new THREE.Mesh(
-  new THREE.SphereGeometry(2.2, 24, 24),
+  new THREE.SphereGeometry(4.4, 24, 24),
   new THREE.MeshStandardMaterial({ color: 0x4fd1c5, emissive: 0x134f49, emissiveIntensity: 0.6 })
 ));
 const meRing = new THREE.Mesh(
-  new THREE.RingGeometry(4, 5, 32),
+  new THREE.RingGeometry(8, 10, 32),
   new THREE.MeshBasicMaterial({ color: 0x4fd1c5, side: THREE.DoubleSide, transparent:true, opacity:0.5 })
 );
 meRing.rotation.x = -Math.PI/2; meRing.position.y = 0.2;
@@ -208,13 +208,13 @@ scene.add(meMarker);
 
 const destMarker = new THREE.Group();
 const destCone = new THREE.Mesh(
-  new THREE.ConeGeometry(3.5, 10, 20),
+  new THREE.ConeGeometry(7, 20, 20),
   new THREE.MeshBasicMaterial({ color: 0xffb454 }) // 조명 영향 없이 항상 선명한 오렌지
 );
-destCone.position.y = 5;
+destCone.position.y = 10;
 destMarker.add(destCone);
 const destRing = new THREE.Mesh(
-  new THREE.RingGeometry(5, 6.5, 32),
+  new THREE.RingGeometry(10, 13, 32),
   new THREE.MeshBasicMaterial({ color: 0xffb454, side: THREE.DoubleSide, transparent: true, opacity: 0.7 })
 );
 destRing.rotation.x = -Math.PI/2;
@@ -256,7 +256,7 @@ scene.add(osmGroup);
 const buildingMeshes = [];
 
 async function fetchOsm(lat, lon, radiusM) {
-  const query = `[out:json][timeout:60];(way["building"](around:${radiusM},${lat},${lon});way["highway"](around:${radiusM},${lat},${lon}););out geom;`;
+  const query = `[out:json][timeout:180];(way["building"](around:${radiusM},${lat},${lon});way["highway"](around:${radiusM},${lat},${lon}););out geom;`;
   const res = await fetch("https://overpass-api.de/api/interpreter", {
     method: "POST",
     body: "data=" + encodeURIComponent(query),
