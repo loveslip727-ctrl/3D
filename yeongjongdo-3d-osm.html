@@ -85,7 +85,7 @@
     <button id="load-btn">내 주변 건물·도로 불러오기</button>
   </div>
   <div style="display:flex; align-items:center; gap:8px; margin-top:8px;">
-    <input type="range" id="radius" min="200" max="1200" step="100" value="600">
+    <input type="range" id="radius" min="200" max="5000" step="100" value="600">
     <span id="radius-val">반경 600m</span>
   </div>
   <div id="status">내 위치를 확인하는 중…</div>
@@ -116,8 +116,8 @@ const ORIGIN = {
   name: params.get("name") || "운남동우체국",
 };
 const SCALE = 1 / 8; // 8m -> 1 유닛 (건물 폭 대비 도로 스케일이 자연스럽게 맞음)
-const MAX_BUILDINGS = 600;
-const MAX_ROADS = 400;
+const MAX_BUILDINGS = 900;
+const MAX_ROADS = 600;
 
 function toLocalXZ(lat, lon) {
   const R = 6371000;
@@ -206,10 +206,20 @@ meMarker.add(meRing);
 meMarker.visible = false;
 scene.add(meMarker);
 
-const destMarker = new THREE.Mesh(
-  new THREE.ConeGeometry(3, 9, 20),
-  new THREE.MeshStandardMaterial({ color: 0xffb454, emissive: 0x4a2e04, emissiveIntensity: 0.5 })
+const destMarker = new THREE.Group();
+const destCone = new THREE.Mesh(
+  new THREE.ConeGeometry(3.5, 10, 20),
+  new THREE.MeshBasicMaterial({ color: 0xffb454 }) // 조명 영향 없이 항상 선명한 오렌지
 );
+destCone.position.y = 5;
+destMarker.add(destCone);
+const destRing = new THREE.Mesh(
+  new THREE.RingGeometry(5, 6.5, 32),
+  new THREE.MeshBasicMaterial({ color: 0xffb454, side: THREE.DoubleSide, transparent: true, opacity: 0.7 })
+);
+destRing.rotation.x = -Math.PI/2;
+destRing.position.y = 0.25;
+destMarker.add(destRing);
 destMarker.visible = false;
 scene.add(destMarker);
 
@@ -246,7 +256,7 @@ scene.add(osmGroup);
 const buildingMeshes = [];
 
 async function fetchOsm(lat, lon, radiusM) {
-  const query = `[out:json][timeout:25];(way["building"](around:${radiusM},${lat},${lon});way["highway"](around:${radiusM},${lat},${lon}););out geom;`;
+  const query = `[out:json][timeout:60];(way["building"](around:${radiusM},${lat},${lon});way["highway"](around:${radiusM},${lat},${lon}););out geom;`;
   const res = await fetch("https://overpass-api.de/api/interpreter", {
     method: "POST",
     body: "data=" + encodeURIComponent(query),
@@ -299,11 +309,22 @@ function addRoad(el) {
   osmGroup.add(line);
 }
 
-function buildFromOsm(data) {
+function distFromCenter(el, center) {
+  const p = el.geometry && el.geometry.find(Boolean);
+  if (!p) return Infinity;
+  const dx = (p.lon - center.lon) * 111320 * Math.cos(center.lat * Math.PI/180);
+  const dy = (p.lat - center.lat) * 110540;
+  return Math.sqrt(dx*dx + dy*dy);
+}
+
+function buildFromOsm(data, center) {
   clearOsm();
+  const ways = data.elements.filter(el => el.type === "way" && el.geometry);
+  // 반경이 커서 상한을 넘길 경우, 중심점에서 가까운 것부터 우선 표시
+  ways.sort((a, b) => distFromCenter(a, center) - distFromCenter(b, center));
+
   let bCount = 0, rCount = 0, truncated = false;
-  for (const el of data.elements) {
-    if (el.type !== "way" || !el.geometry) continue;
+  for (const el of ways) {
     const tags = el.tags || {};
     if (tags.building && bCount < MAX_BUILDINGS) { addBuilding(el); bCount++; }
     else if (tags.highway && rCount < MAX_ROADS) { addRoad(el); rCount++; }
@@ -323,7 +344,8 @@ async function fetchRoute(from, to) {
 }
 
 async function goToDestination(destLat, destLon, label) {
-  destMarker.position.set(...(([x,z]) => [x, 6, z])(Object.values(toLocalXZ(destLat, destLon)).map(v=>v*SCALE)));
+  const dPos = toLocalXZ(destLat, destLon);
+  destMarker.position.set(dPos.x*SCALE, 0, dPos.z*SCALE);
   destMarker.visible = true;
   resetBtn.style.display = "inline-block";
 
@@ -378,7 +400,7 @@ loadBtn.addEventListener("click", async () => {
   setStatus("OSM 데이터를 불러오는 중… (건물 수에 따라 몇 초 걸릴 수 있어요)");
   try {
     const data = await fetchOsm(center.lat, center.lon, radius);
-    const { bCount, rCount, truncated } = buildFromOsm(data);
+    const { bCount, rCount, truncated } = buildFromOsm(data, center);
     setStatus(
       `건물 ${bCount}개, 도로 ${rCount}개 불러왔습니다.` +
       (truncated ? " (일부는 성능을 위해 생략됨 — 반경을 줄여보세요)" : ""),
@@ -422,6 +444,7 @@ if ("geolocation" in navigator) {
 function animate() {
   requestAnimationFrame(animate);
   meRing.rotation.z += 0.01;
+  destRing.rotation.z -= 0.015;
   controls.update();
   renderer.render(scene, camera);
 }
