@@ -76,6 +76,7 @@
   <div><span style="background:#ffb454"></span>선택한 목적지</div>
   <div><span style="background:#5c7f7c"></span>OSM 건물</div>
   <div><span style="background:#3a5a5c"></span>도로</div>
+  <div><span style="background:#ffffff"></span>최단 직선</div>
 </div>
 
 <div id="hint">지도를 불러온 뒤, 건물을 탭하면 목적지로 선택됩니다</div>
@@ -85,7 +86,7 @@
     <button id="load-btn">내 주변 건물·도로 불러오기</button>
   </div>
   <div style="display:flex; align-items:center; gap:8px; margin-top:8px;">
-    <input type="range" id="radius" min="200" max="10000" step="200" value="600">
+    <input type="range" id="radius" min="200" max="15000" step="200" value="600">
     <span id="radius-val">반경 600m</span>
   </div>
   <div id="status">내 위치를 확인하는 중…</div>
@@ -214,7 +215,7 @@ const destCone = new THREE.Mesh(
 destCone.position.y = 10;
 destMarker.add(destCone);
 const destRing = new THREE.Mesh(
-  new THREE.RingGeometry(10, 13, 32),
+  new THREE.RingGeometry(15, 19.5, 32),
   new THREE.MeshBasicMaterial({ color: 0xffb454, side: THREE.DoubleSide, transparent: true, opacity: 0.7 })
 );
 destRing.rotation.x = -Math.PI/2;
@@ -229,10 +230,29 @@ function updateMyPosition(lat, lon) {
   const { x, z } = toLocalXZ(lat, lon);
   meMarker.position.set(x*SCALE, 0, z*SCALE);
   meMarker.visible = true;
+  if (currentDest) drawDirectLine();
 }
 
 /* ---------------------------- 경로 라인 ---------------------------- */
 let routeLine = null;
+let currentDest = null;
+let directLine = null;
+
+function drawDirectLine() {
+  if (directLine) { scene.remove(directLine); directLine.geometry.dispose(); directLine.material.dispose(); directLine = null; }
+  if (!myLatLon || !currentDest) return;
+  const p1 = toLocalXZ(myLatLon.lat, myLatLon.lon);
+  const p2 = toLocalXZ(currentDest.lat, currentDest.lon);
+  const geo = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(p1.x*SCALE, 1.5, p1.z*SCALE),
+    new THREE.Vector3(p2.x*SCALE, 1.5, p2.z*SCALE),
+  ]);
+  const mat = new THREE.LineDashedMaterial({ color: 0xffffff, dashSize: 3, gapSize: 2 });
+  directLine = new THREE.Line(geo, mat);
+  directLine.computeLineDistances();
+  scene.add(directLine);
+}
+
 function drawRoute(coordsLatLon) {
   if (routeLine) { scene.remove(routeLine); routeLine.geometry.dispose(); routeLine.material.dispose(); }
   const points = coordsLatLon.map(([lon, lat]) => {
@@ -247,6 +267,8 @@ function drawRoute(coordsLatLon) {
 }
 function clearRoute() {
   if (routeLine) { scene.remove(routeLine); routeLine.geometry.dispose(); routeLine.material.dispose(); routeLine = null; }
+  if (directLine) { scene.remove(directLine); directLine.geometry.dispose(); directLine.material.dispose(); directLine = null; }
+  currentDest = null;
   destMarker.visible = false;
 }
 
@@ -344,9 +366,11 @@ async function fetchRoute(from, to) {
 }
 
 async function goToDestination(destLat, destLon, label) {
+  currentDest = { lat: destLat, lon: destLon };
   const dPos = toLocalXZ(destLat, destLon);
   destMarker.position.set(dPos.x*SCALE, 0, dPos.z*SCALE);
   destMarker.visible = true;
+  drawDirectLine();
   resetBtn.style.display = "inline-block";
 
   if (!myLatLon) { setStatus("내 위치를 아직 확인할 수 없습니다.", true); return; }
