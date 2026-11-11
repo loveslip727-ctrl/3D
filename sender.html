@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>발신번호 안내</title>
+<style>
+  :root {
+    --bg: #f3f6fa;
+    --card: #ffffff;
+    --ink: #1c2733;
+    --sub: #5a6b7d;
+    --warn: #c8321e;
+    --warn-bg: #fdecea;
+    --ok: #1d5fa8;
+    --ok-bg: #e8f1fb;
+    --line: #d9e1ea;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #11171e;
+      --card: #1a232d;
+      --ink: #e9eef3;
+      --sub: #9fb0c1;
+      --warn: #ff8a78;
+      --warn-bg: #3a1f1b;
+      --ok: #7db7f0;
+      --ok-bg: #172a3f;
+      --line: #2c3a48;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Pretendard", "Noto Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    line-height: 1.7;
+    padding: 24px 16px 40px;
+  }
+  main {
+    max-width: 560px;
+    margin: 0 auto;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  header {
+    padding: 28px 28px 20px;
+    border-bottom: 1px solid var(--line);
+  }
+  header h1 {
+    margin: 0;
+    font-size: 1.6rem;
+    line-height: 1.3;
+    letter-spacing: -0.02em;
+  }
+  header p { margin: 6px 0 0; color: var(--sub); font-size: .95rem; }
+  section { padding: 22px 28px; }
+  .warn {
+    background: var(--warn-bg);
+    border-left: 5px solid var(--warn);
+  }
+  .warn .num {
+    display: block;
+    font-size: 1.7rem;
+    font-weight: 800;
+    color: var(--warn);
+    text-decoration: line-through;
+    text-decoration-thickness: 2px;
+    letter-spacing: .02em;
+    margin: 4px 0 8px;
+  }
+  .warn p { margin: 0; }
+  .contact {
+    background: var(--ok-bg);
+    border-left: 5px solid var(--ok);
+  }
+  .contact h2 { margin: 0 0 10px; font-size: 1.05rem; color: var(--ok); }
+  .contact dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; align-items: baseline; }
+  .contact dt { color: var(--sub); font-size: .9rem; }
+  .contact dd { margin: 0; font-weight: 700; font-size: 1.15rem; }
+  .contact a { color: inherit; text-decoration: none; }
+  .contact a:focus-visible { outline: 3px solid var(--ok); outline-offset: 3px; }
+  footer {
+    padding: 18px 28px 26px;
+    text-align: center;
+    color: var(--sub);
+  }
+  .p { margin: 0; }
+  .intro { padding-bottom: 6px; }
+  .intro p { margin: 0; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>📢 발신번호 안내</h1>
+    <p>공동문자시스템(퐁당넷) 발신자 번호 오류 관련</p>
+  </header>
+
+  <section class="intro">
+    <p>공동문자시스템(퐁당넷) 사용 중 발신자 번호가 잘못 설정되어 문자가 발송된 사례가 있었습니다.</p>
+  </section>
+
+  <section class="warn" aria-label="연락 금지 번호">
+    <p>문자에 표시된 아래 번호는 제물포 지역의 다른 노인일자리 담당자 선생님 휴대전화 번호입니다.</p>
+    <span class="num">010-8344-6322</span>
+    <p><strong>해당 번호로 문자 또는 전화를 하지 말아 주시기 바랍니다.</strong></p>
+  </section>
+
+  <section class="contact" aria-label="문의 연락처">
+    <h2>문의 및 연락은 아래 연락처로 부탁드립니다.</h2>
+    <dl>
+      <dt>☎ 사무실 직통</dt>
+      <dd><a href="tel:07044462909">070-4446-2909</a></dd>
+      <dt>👤 담당자</dt>
+      <dd>임태진</dd>
+    </dl>
+  </section>
+
+  <footer>
+    <p class="p">협조해 주셔서 감사합니다.</p>
+  </footer>
+</main>
+</body>
+</html>
